@@ -3,8 +3,11 @@ import cv2
 import numpy as np
 from sklearn.model_selection import train_test_split
 from model_builder import MushroomClassifier
+from class_inbalance_handling import handle_class_imbalance
 from tensorflow.keras.utils import to_categorical
 import matplotlib.pyplot as plt
+from generate_plots import plot_class_distribution
+from collections import Counter
 
 directory_path = 'Mushrooms'
 image_size = (128,128)
@@ -42,11 +45,31 @@ X = np.array(X)
 y = np.array(y)
 print(f"Loaded {len(X)} images across {len(label_map)} categories.")
 
+counts = Counter(y)
+
+# If you want readable class names (using label_map)
+reverse_map = {v: k for k, v in label_map.items()}
+
+print("Image count per class:")
+for class_id, count in counts.items():
+    class_name = reverse_map[class_id]
+    print(f"{class_name}: {count} images")
+
+plot_class_distribution(y, label_map=label_map, title = "Data Set Class Distribution")
+
+
 num_classes = len(label_map)
 
 # scaling
 X = X/255.0
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+plot_class_distribution(y_train, label_map=label_map, title="Training Set Class Distribution")
+
+# comptute class weight
+class_weights =  handle_class_imbalance(y_train)
+
+
 
 # One-hot encode labels
 y_train_cat = to_categorical(y_train, num_classes)
@@ -56,14 +79,14 @@ model = MushroomClassifier(num_classes = num_classes)
 model.summary()
 
 # Train
-history = model.train(X_train, y_train_cat, epochs=10, batch_size=32, validation_split=0.1)
+history = model.train(X_train, y_train_cat, epochs=10, batch_size=32, validation_split=0.1, class_weight=class_weights)
 
 # Evaluate
 loss, acc = model.evaluate(X_test, y_test_cat)
 
 print(f"Test Accuracy: {acc * 100:.2f}%")
 
-import matplotlib.pyplot as plt
+
 
 # Plot training & validation accuracy
 plt.figure(figsize=(12, 5))
